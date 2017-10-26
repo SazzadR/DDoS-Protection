@@ -30,14 +30,22 @@ def func_block_suspicious_connections():
             hit_count  = hit_counts[0]
 
             if (int(hit_count) > config.REQUEST_LIMIT):
-                block_command = 'iptables -A INPUT -s ' + ip_address + ' -j DROP'
-                subprocess.check_output(block_command, shell=True)
 
-                record = {
-                    'ip': ip_address,
-                    'time_of_block': int(round(time.time() * 1000))
-                }
-                new_suspicious_connections.append(record)
+                existing_blocked_connections = func_existing_blocked_connections()
+                existing_blocked_ips = func_ips_from_records(existing_blocked_connections)
+
+                if ip_address not in existing_blocked_ips:
+                    block_command = 'iptables -A INPUT -s ' + ip_address + ' -j DROP'
+                    subprocess.check_output(block_command, shell=True)
+
+                    save_command = 'iptables-save'
+                    subprocess.check_output(save_command, shell=True)
+
+                    record = {
+                        'ip': ip_address,
+                        'time_of_block': int(round(time.time() * 1000))
+                    }
+                    new_suspicious_connections.append(record)
 
     func_record_new_suspicious_connections(new_suspicious_connections)
 
@@ -83,6 +91,9 @@ def func_unblock():
         if (time_diff_in_second > config.BlOCKAGE_TIME):
             unblock_command = 'iptables -D INPUT -s ' + blocked_connection['ip'] + ' -j DROP'
             subprocess.check_output(unblock_command, shell=True)
+
+            save_command = 'iptables-save'
+            subprocess.check_output(save_command, shell=True)
 
             existing_blocked_connections.remove(blocked_connection)
 
